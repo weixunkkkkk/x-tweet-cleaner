@@ -1,186 +1,77 @@
-/**
- * X Post Cleaner
- *
- * Paste this file into the browser console on your own X/Twitter profile page.
- * It can remove your original posts and undo reposts currently loaded in the UI.
- *
- * Stop command:
- *   window.__xPostCleanerStop = true
- *
- * Back up your X data before running this for real. Deleted posts cannot be
- * restored by this script.
- */
-(async function autoClearAll() {
-  const config = {
-    dryRun: true,
-    maxActions: 30,
-    actionDelayMs: 1800,
-    menuDelayMs: 900,
-    scrollDelayMs: 2200,
-    scrollStepPx: 1000,
-    maxEmptyScrolls: 8,
-  };
+async function autoClearAll() {
+    console.log("%c🚀 开始全面清理（包含原创推文与转推），如需停止请直接刷新页面 (F5)...", "color: red; font-size: 16px; font-weight: bold;");
+    
+    let deletedTweets = 0;
+    let undoneRetweets = 0;
 
-  const state = {
-    deletedPosts: 0,
-    undoneReposts: 0,
-    skippedItems: 0,
-    emptyScrolls: 0,
-  };
-  const seenDryRunReposts = new WeakSet();
-  const seenDryRunCarets = new WeakSet();
-  const skippedReposts = new WeakSet();
-  const skippedCarets = new WeakSet();
+    // 防风控延时函数
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const log = (...args) => console.log("[x-post-cleaner]", ...args);
+    while (true) {
+        // --- 步骤 1：优先扫描并处理“转推” ---
+        let unretweetBtn = document.querySelector('[data-testid="unretweet"]');
+        
+        if (unretweetBtn) {
+            unretweetBtn.click();
+            await sleep(800); // 等待弹出菜单
+            
+            let confirmBtn = document.querySelector('[data-testid="unretweetConfirm"]');
+            if (confirmBtn) {
+                confirmBtn.click();
+                undoneRetweets++;
+                console.log(`✅ 已撤销 ${undoneRetweets} 条转推`);
+                await sleep(2000); // ⚠️ 关键防封号等待时间
+            } else {
+                document.body.click(); // 未找到确认按钮，关闭菜单
+                unretweetBtn.remove(); // 移除该异常节点防止死循环
+                await sleep(500);
+            }
+            continue; // 执行完毕后，重新从头扫描页面
+        }
 
-  const clickOutside = () => {
-    document.body.dispatchEvent(
-      new MouseEvent("click", {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-      }),
-    );
-  };
+        // --- 步骤 2：如果没有转推，扫描并处理“原创推文” ---
+        let carets = document.querySelectorAll('[data-testid="caret"]');
+        
+        if (carets.length > 0) {
+            carets[0].click(); // 点开第一个推文的更多菜单
+            await sleep(800); // 等待菜单渲染
+            
+            // 查找菜单中的“删除”选项
+            let menuItems = document.querySelectorAll('[role="menuitem"]');
+            let deleteBtn = Array.from(menuItems).find(item => 
+                item.innerText.includes("删除") || item.innerText.includes("Delete")
+            );
 
-  const clickElement = async (element) => {
-    element.scrollIntoView({ block: "center", inline: "center" });
-    await sleep(250);
-    element.click();
-  };
+            if (deleteBtn) {
+                deleteBtn.click();
+                await sleep(800); // 等待二次确认弹窗
+                
+                let confirmBtn = document.querySelector('[data-testid="confirmationSheetConfirm"]');
+                if (confirmBtn) {
+                    confirmBtn.click();
+                    deletedTweets++;
+                    console.log(`🗑️ 已删除 ${deletedTweets} 条原创推文`);
+                    await sleep(2000); // ⚠️ 关键防封号等待时间
+                } else {
+                    document.body.click(); 
+                    carets[0].remove();
+                    await sleep(500);
+                }
+            } else {
+                // 如果菜单里没有“删除”（可能是其他人艾特你的推文，或者已被屏蔽的推文）
+                document.body.click(); // 点击空白处关闭菜单
+                carets[0].remove(); // 在前端DOM中移除该按钮，以免卡在这一条
+                await sleep(500);
+            }
+            continue; // 执行完毕后，重新从头扫描页面
+        }
 
-  const findMenuItemByText = (needles) => {
-    const menuItems = Array.from(document.querySelectorAll('[role="menuitem"]'));
-    return menuItems.find((item) => {
-      const text = item.innerText || item.textContent || "";
-      return needles.some((needle) => text.includes(needle));
-    });
-  };
-
-  const reachedLimit = () => {
-    const totalActions = state.deletedPosts + state.undoneReposts;
-    return totalActions >= config.maxActions;
-  };
-
-  const undoFirstRepost = async () => {
-    const repostButton = Array.from(
-      document.querySelectorAll('[data-testid="unretweet"]'),
-    ).find((button) => (
-      !seenDryRunReposts.has(button) &&
-      !skippedReposts.has(button)
-    ));
-    if (!repostButton) return false;
-
-    if (config.dryRun) {
-      seenDryRunReposts.add(repostButton);
-      state.undoneReposts += 1;
-      log(`dry run: would undo repost #${state.undoneReposts}`);
-      repostButton.scrollIntoView({ block: "center", inline: "center" });
-      await sleep(config.actionDelayMs);
-      return true;
+        // --- 步骤 3：当前可视区域既没有转推也没有原创推文，滚动翻页 ---
+        console.log("⏬ 当前可视区域清理完毕，正在向下滚动加载...");
+        window.scrollBy(0, 1000);
+        await sleep(2000); // 等待网络加载新内容
     }
+}
 
-    await clickElement(repostButton);
-    await sleep(config.menuDelayMs);
-
-    const confirmButton = document.querySelector('[data-testid="unretweetConfirm"]');
-    if (!confirmButton) {
-      skippedReposts.add(repostButton);
-      state.skippedItems += 1;
-      clickOutside();
-      log("skipped repost: confirm button was not found");
-      await sleep(config.actionDelayMs);
-      return true;
-    }
-
-    await clickElement(confirmButton);
-    state.undoneReposts += 1;
-    log(`undone reposts: ${state.undoneReposts}`);
-    await sleep(config.actionDelayMs);
-    return true;
-  };
-
-  const deleteFirstOriginalPost = async () => {
-    const carets = Array.from(
-      document.querySelectorAll('[data-testid="caret"]'),
-    ).filter((button) => (
-      !seenDryRunCarets.has(button) &&
-      !skippedCarets.has(button)
-    ));
-    if (carets.length === 0) return false;
-
-    await clickElement(carets[0]);
-    await sleep(config.menuDelayMs);
-
-    const deleteButton = findMenuItemByText(["Delete", "删除"]);
-    if (!deleteButton) {
-      skippedCarets.add(carets[0]);
-      state.skippedItems += 1;
-      clickOutside();
-      log("skipped item: delete menu item was not found");
-      await sleep(config.actionDelayMs);
-      return true;
-    }
-
-    if (config.dryRun) {
-      seenDryRunCarets.add(carets[0]);
-      state.deletedPosts += 1;
-      log(`dry run: would delete original post #${state.deletedPosts}`);
-      clickOutside();
-      await sleep(config.actionDelayMs);
-      return true;
-    }
-
-    await clickElement(deleteButton);
-    await sleep(config.menuDelayMs);
-
-    const confirmButton = document.querySelector(
-      '[data-testid="confirmationSheetConfirm"]',
-    );
-    if (!confirmButton) {
-      skippedCarets.add(carets[0]);
-      state.skippedItems += 1;
-      clickOutside();
-      log("skipped post: delete confirmation button was not found");
-      await sleep(config.actionDelayMs);
-      return true;
-    }
-
-    await clickElement(confirmButton);
-    state.deletedPosts += 1;
-    log(`deleted original posts: ${state.deletedPosts}`);
-    await sleep(config.actionDelayMs);
-    return true;
-  };
-
-  log("started. Refresh the page or run `window.__xPostCleanerStop = true` to stop.");
-  log("config:", config);
-
-  while (!window.__xPostCleanerStop && !reachedLimit()) {
-    const handledRepost = await undoFirstRepost();
-    if (handledRepost) {
-      state.emptyScrolls = 0;
-      continue;
-    }
-
-    const handledPost = await deleteFirstOriginalPost();
-    if (handledPost) {
-      state.emptyScrolls = 0;
-      continue;
-    }
-
-    state.emptyScrolls += 1;
-    if (state.emptyScrolls > config.maxEmptyScrolls) {
-      log("stopped: no more matching items were found after repeated scrolling.");
-      break;
-    }
-
-    log(`scrolling for more items (${state.emptyScrolls}/${config.maxEmptyScrolls})`);
-    window.scrollBy(0, config.scrollStepPx);
-    await sleep(config.scrollDelayMs);
-  }
-
-  log("finished:", state);
-})();
+// 执行函数
+autoClearAll();
