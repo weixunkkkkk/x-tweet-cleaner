@@ -6,6 +6,9 @@
  *
  * Stop command:
  *   window.__xPostCleanerStop = true
+ *
+ * Back up your X data before running this for real. Deleted posts cannot be
+ * restored by this script.
  */
 (async function autoClearAll() {
   const config = {
@@ -24,6 +27,10 @@
     skippedItems: 0,
     emptyScrolls: 0,
   };
+  const seenDryRunReposts = new WeakSet();
+  const seenDryRunCarets = new WeakSet();
+  const skippedReposts = new WeakSet();
+  const skippedCarets = new WeakSet();
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const log = (...args) => console.log("[x-post-cleaner]", ...args);
@@ -58,10 +65,16 @@
   };
 
   const undoFirstRepost = async () => {
-    const repostButton = document.querySelector('[data-testid="unretweet"]');
+    const repostButton = Array.from(
+      document.querySelectorAll('[data-testid="unretweet"]'),
+    ).find((button) => (
+      !seenDryRunReposts.has(button) &&
+      !skippedReposts.has(button)
+    ));
     if (!repostButton) return false;
 
     if (config.dryRun) {
+      seenDryRunReposts.add(repostButton);
       state.undoneReposts += 1;
       log(`dry run: would undo repost #${state.undoneReposts}`);
       repostButton.scrollIntoView({ block: "center", inline: "center" });
@@ -74,6 +87,7 @@
 
     const confirmButton = document.querySelector('[data-testid="unretweetConfirm"]');
     if (!confirmButton) {
+      skippedReposts.add(repostButton);
       state.skippedItems += 1;
       clickOutside();
       log("skipped repost: confirm button was not found");
@@ -89,7 +103,12 @@
   };
 
   const deleteFirstOriginalPost = async () => {
-    const carets = Array.from(document.querySelectorAll('[data-testid="caret"]'));
+    const carets = Array.from(
+      document.querySelectorAll('[data-testid="caret"]'),
+    ).filter((button) => (
+      !seenDryRunCarets.has(button) &&
+      !skippedCarets.has(button)
+    ));
     if (carets.length === 0) return false;
 
     await clickElement(carets[0]);
@@ -97,6 +116,7 @@
 
     const deleteButton = findMenuItemByText(["Delete", "删除"]);
     if (!deleteButton) {
+      skippedCarets.add(carets[0]);
       state.skippedItems += 1;
       clickOutside();
       log("skipped item: delete menu item was not found");
@@ -105,6 +125,7 @@
     }
 
     if (config.dryRun) {
+      seenDryRunCarets.add(carets[0]);
       state.deletedPosts += 1;
       log(`dry run: would delete original post #${state.deletedPosts}`);
       clickOutside();
@@ -119,6 +140,7 @@
       '[data-testid="confirmationSheetConfirm"]',
     );
     if (!confirmButton) {
+      skippedCarets.add(carets[0]);
       state.skippedItems += 1;
       clickOutside();
       log("skipped post: delete confirmation button was not found");
