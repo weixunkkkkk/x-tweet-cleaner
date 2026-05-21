@@ -1,5 +1,6 @@
 async function autoUnfollow() {
     console.log("%c🚀 开始批量取消关注，如需停止请直接刷新页面 (F5)...", "color: orange; font-size: 16px; font-weight: bold;");
+    console.warn("⚠️ 风险提示：脚本会直接执行取消关注操作，且不会保存取关名单；一旦完成无法通过本脚本恢复原关注列表。请先备份关注列表。");
     
     let unfollowCount = 0;
     // 延时函数

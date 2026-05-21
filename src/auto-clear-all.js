@@ -1,5 +1,6 @@
 async function autoClearAll() {
     console.log("%c🚀 开始全面清理（包含原创推文与转推），如需停止请直接刷新页面 (F5)...", "color: red; font-size: 16px; font-weight: bold;");
+    console.warn("⚠️ 风险提示：脚本会直接执行删除/撤销转推操作，一旦完成无法通过本脚本恢复。请确认已提前备份 X 数据。");
     
     let deletedTweets = 0;
     let undoneRetweets = 0;

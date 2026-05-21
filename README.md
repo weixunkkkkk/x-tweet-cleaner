@@ -2,6 +2,8 @@
 
 中文 | [English](#english)
 
+> ⚠️ 一旦运行脚本并完成删除/取关操作，无法通过本项目恢复到原状态。请务必先备份 X 数据和关注列表。
+
 一组可以直接粘贴到浏览器 Console 里运行的 X/Twitter 辅助脚本，用来整理你自己的账号内容和关注列表。
 
 目前包含：
@@ -17,6 +19,7 @@
 
 - 只用于你自己的 X/Twitter 账号。
 - 这些脚本运行后会直接开始真实操作，没有试运行模式。
+- 一旦使用并完成操作，无法通过本项目恢复到原状态。
 - 删除推文后无法通过本脚本恢复。运行前请先备份你的 X 数据归档。
 - 取消关注后，脚本不会保存被取消关注的账号名单；需要的话请提前手动备份关注列表。
 - X 前端经常变化，按钮选择器可能失效。
@@ -54,6 +57,8 @@
 
 ## English
 
+> ⚠️ Once these scripts run and complete delete/unfollow actions, this project cannot restore your account to its previous state. Back up your X data and following list first.
+
 Browser-console scripts for cleaning up your own X/Twitter account. They help you remove your own posts, undo reposts, and unfollow accounts from pages already loaded in the X web UI.
 
 Included scripts:
@@ -69,6 +74,7 @@ Read this before running.
 
 - Use these scripts only on your own X/Twitter account.
 - These scripts start real actions immediately. There is no dry-run mode.
+- Once actions are completed, this project cannot restore your account to its previous state.
 - Deleted posts cannot be restored by this script. Back up your X data archive first.
 - The unfollow script does not save the accounts it unfollows. Back up your following list first if you need it.
 - X changes its frontend often, so selectors can break.
